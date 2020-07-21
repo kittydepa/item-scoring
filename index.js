@@ -34,6 +34,14 @@ const fs = require("fs")
 // ID, A, B, C, D, E, F
 // Person A, aosdij, oiasjd, oijasd, oijasd, oijasd
 
+class ResponsesTotal {
+    constructor(responses) {
+        this.participant = participant
+        this.responses = responses
+    }
+}
+
+
 class Response {
     constructor(participant, studyResults) {
         this.participant = participant
@@ -182,3 +190,11 @@ fs.writeFileSync("./mockdata.json", JSON.stringify(responses, null, 2), "utf8")
 // console.log(JSON.stringify(studyResults))
 
 // module.exports = { Row, Question, Questionnaire }
+
+// Scoring shit, and actually storing it (?!)
+        // Create an array object to store all the quiz answers. Each selected answer should increase the category score by 1. The highest score will be the personality 'type' in the results. 
+const responsesTotal = [
+    {name: "SWEBOtotal" , score: 0},
+    {name: "BDItotal" , score: 0},
+    {name: "PCLtotal" , score: 0},
+    {name: "FAKEtotal" , score: 0} ]
