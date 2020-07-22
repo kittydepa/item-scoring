@@ -34,15 +34,7 @@ const fs = require("fs")
 // ID, A, B, C, D, E, F
 // Person A, aosdij, oiasjd, oijasd, oijasd, oijasd
 
-class ResponsesTotal {
-    constructor(responses) {
-        this.participant = participant
-        this.responses = responses
-    }
-}
-
-
-class Response {
+class Submission {
     constructor(participant, studyResults) {
         this.participant = participant
         this.studyResults = studyResults
@@ -55,6 +47,12 @@ class Response {
         // Loop through the study results and print them
         this.studyResults.print()
     }
+
+    printTotals() {
+        // Print the participant ID
+        console.log(`## Participant: ${this.participant.id}`)
+        this.studyResults.printTotals()
+    }
 }
 
 class Participant {
@@ -64,27 +62,36 @@ class Participant {
 }
 
 class Question {
+    // private response: number
+
     constructor(id, response) {
         // A number
         this.id = id
 
         // This is a number with special meaning
-        this.response = response
+        this.responseValue = response
     }
 
     print(questionnaire) {
         console.log(`Question: ${questionnaire.name}-${this.id}`)
-        console.log(`Response: ${this.response}`)
+        console.log(`Submission: ${this.responseValue}`)
     }
 }
 
 class Questionnaire {
-    constructor(name, questions = []) {
+    constructor(name, formula, min, max, questions = []) {
         // A string
         this.name = name
 
+        // the formula we're going to calculate our totals with as a function
+        this.formula = formula
+
         // an array of Questions
         this.questions = questions
+
+        // Min and max values for the responses in this questionnaire
+        this.min = min
+        this.max = max
     }
 
     print() {
@@ -92,7 +99,53 @@ class Questionnaire {
         for (const question of this.questions) {
             console.log(`-------`)
             question.print(this)
-        } 
+        }
+        this.printTotals()
+    }
+
+    printTotals() {
+        console.log(`${this.name}: ${this.formula.calculate(this)}`)
+    }
+}
+
+/*abstract*/ class Formula {
+    calculate(questionnaire) {
+        throw new Error("not implemented")
+    }   
+}
+
+class SumTotalsFormula extends Formula {
+    calculate(questionnaire) {
+        let total = 0
+        for (const question of questionnaire.questions) {
+            total += question.responseValue
+        }
+        return total
+    }
+}
+
+class PartialInverseSumTotalsFormula extends Formula {
+    constructor(inverseIds) {
+        super()
+        this.inverseIds = inverseIds
+    }
+
+    calculate(questionnaire) {
+        const inverseIds = this.inverseIds
+        const { questions, min, max } = questionnaire
+        let total = 0
+
+        for (const question of questions) {
+            if (inverseIds.includes(question.id)) {
+                const offsetValue = question.responseValue - min
+                const inverseValue = ((max - min) - offsetValue) + min
+                total += inverseValue
+            } else {
+                total += question.responseValue
+            }
+        }
+
+        return total
     }
 }
 
@@ -106,95 +159,78 @@ class StudyResults {
             questionnaire.print()
             console.log()
         }
-    } 
+    }
+
+    printTotals() {
+        for (const questionnaire of this.questionnaires) {
+            questionnaire.printTotals()
+        }
+    }
 }
 
 // ====================================
 
 // This function generates a mocked Questionnaire for SWEBO data
 function mockSweboData() {
-    return mockSomeData("SWEBO", 10, 1, 4)
+    return mockSomeData("SWEBO", new SumTotalsFormula(), 10, 1, 4)
 }
 
 //This function generates a mocked Questionnaire for BDI data
 function mockBdiData() {
-    return mockSomeData("BDI", 21, 0, 3)
+    return mockSomeData("BDI", new SumTotalsFormula(), 21, 0, 3)
 }
 
 
 //This function generates a mocked Questionnaire for PCL data
 function mockPclData() {
-    return mockSomeData("PCL", 20, 0, 4)
+    return mockSomeData("PCL", new SumTotalsFormula(), 20, 0, 4)
 }
 
 //Mock FAKE data
 function mockFakeData() {
-    return mockSomeData("FAKE", 10, 0, 4)
+    return mockSomeData("FAKE", new PartialInverseSumTotalsFormula([1, 3, 5]), 10, 0, 4)
 }
 
-function mockSomeData(name, count, min, max) {
+//Mock FAKE2 data
+function mockFake2Data() {
+    return mockSomeData("FAKE2", new PartialInverseSumTotalsFormula([11, 13, 17, 3]), 20, 1, 10)
+}
+
+function mockSomeData(name, formula, count, min, max) {
     const questions = []
     for (let i = 1; i <= count; i += 1) {
         const question = new Question(i, chance.integer({ min, max }))
         questions.push(question)
     }
 
-    return new Questionnaire(name, questions)
+    return new Questionnaire(name, formula, min, max, questions)
 }
 
-// mockSweboData().print()
-// mockBdiData().print()
-// mockPclData().print()
-// mockFakeData().print()
-
-function mockResponse(participantId) {
+function mockSubmission(participantId) {
     const participant = new Participant(participantId)
     const studyResults = new StudyResults([
-        mockSweboData(), mockBdiData(), mockPclData(), mockFakeData()
-    
+        // mockSweboData(),
+        // mockBdiData(),
+        // mockPclData(),
+        // mockFakeData(),
+        mockFake2Data()
     ])
-    return new Response(participant, studyResults)
+    return new Submission(participant, studyResults)
 }
 
-function mockResponses(count) {
+function mockSubmissions(count) {
     const responses = []
     for (let i = 1; i <= count; i += 1) {
-        const response = mockResponse(i)
+        const response = mockSubmission(i)
         responses.push(response)
     }
     return responses
 }
 
-const responses = mockResponses(200)
+const responses = mockSubmissions(200)
+console.log("# Totals")
+for (const response of responses) {
+    response.printTotals()
+}
+
 fs.writeFileSync("./mockdata.json", JSON.stringify(responses, null, 2), "utf8")
-
-
-// const questionnaire = new Questionnaire("SWEBO", [
-//     new Question(1, 3),
-//     new Question(2, "aoijdasoijdasio"),
-//     new Question(3, false)
-// ])
-
-// const questionnaire2 = new Questionnaire ("BDI", [
-//     new Question(1, 2),
-//     new Question(2, true),
-//     new Question(3, 4)
-// ])
-
-// const studyResults = new StudyResults([
-//     questionnaire,
-//     questionnaire2
-// ])
-
-// // studyResults.print()
-// console.log(JSON.stringify(studyResults))
-
-// module.exports = { Row, Question, Questionnaire }
-
-// Scoring shit, and actually storing it (?!)
-        // Create an array object to store all the quiz answers. Each selected answer should increase the category score by 1. The highest score will be the personality 'type' in the results. 
-const responsesTotal = [
-    {name: "SWEBOtotal" , score: 0},
-    {name: "BDItotal" , score: 0},
-    {name: "PCLtotal" , score: 0},
-    {name: "FAKEtotal" , score: 0} ]
